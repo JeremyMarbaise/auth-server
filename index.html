@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Belgian eID Authentication Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .step {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:disabled {
+            background-color: #cccccc;
+        }
+        pre {
+            background-color: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Belgian eID Authentication Test</h1>
+    <div class="container">
+        <div class="step">
+            <h2>Step 1: Request Challenge</h2>
+            <label for="clientId">Client ID:</label>
+            <input type="text" id="clientId" value="test-client-123">
+            <button id="requestChallengeBtn">Request Challenge</button>
+            <div id="challengeResult"></div>
+        </div>
+
+        <div class="step">
+            <h2>Step 2: Sign Challenge</h2>
+            <button id="signChallengeBtn" disabled>Sign Challenge</button>
+            <div id="signatureResult"></div>
+        </div>
+
+        <div class="step">
+            <h2>Step 3: Authenticate</h2>
+            <button id="authenticateBtn" disabled>Authenticate</button>
+            <div id="authenticationResult"></div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const AUTH_SERVER_URL = 'https://authentication-server-gtgcc2bwapcddzhj.germanywestcentral-01.azurewebsites.net';
+        const EID_API_URL = 'https://localhost:7043/auth/sign';
+        
+        // DOM elements
+        const requestChallengeBtn = document.getElementById('requestChallengeBtn');
+        const signChallengeBtn = document.getElementById('signChallengeBtn');
+        const authenticateBtn = document.getElementById('authenticateBtn');
+        const clientIdInput = document.getElementById('clientId');
+        const challengeResult = document.getElementById('challengeResult');
+        const signatureResult = document.getElementById('signatureResult');
+        const authenticationResult = document.getElementById('authenticationResult');
+
+        // State
+        let currentChallenge = null;
+        let currentSignature = null;
+
+        // Step 1: Request Challenge
+        requestChallengeBtn.addEventListener('click', async () => {
+            const clientId = clientIdInput.value.trim();
+            if (!clientId) {
+                showError(challengeResult, 'Client ID is required');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${AUTH_SERVER_URL}/auth/challenge?clientId=${encodeURIComponent(clientId)}`);
+                
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const data = await response.json();
+                currentChallenge = data.challenge;
+                
+                challengeResult.innerHTML = `
+                    <p>Challenge received:</p>
+                    <pre>${currentChallenge}</pre>
+                `;
+                
+                signChallengeBtn.disabled = false;
+                showSuccess(challengeResult, 'Challenge received successfully');
+            } catch (error) {
+                showError(challengeResult, `Failed to get challenge: ${error.message}`);
+            }
+        });
+
+        // Step 2: Sign Challenge
+        signChallengeBtn.addEventListener('click', async () => {
+            if (!currentChallenge) {
+                showError(signatureResult, 'No challenge available');
+                return;
+            }
+
+            try {
+                // Convert challenge to Uint8Array (assuming it's base64 encoded)
+                const challengeBytes = currentChallenge;
+                
+                const response = await fetch(EID_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({data: challengeBytes}) // Send as array of numbers
+                    
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const signedData = await response.json();
+                currentSignature = signedData;
+                
+                // Convert signature to base64 for display
+                
+                
+                signatureResult.innerHTML = `
+                    <p>Signature received:</p>
+                    <pre>${currentSignature}</pre>
+                `;
+                
+                authenticateBtn.disabled = false;
+                showSuccess(signatureResult, 'Challenge signed successfully');
+            } catch (error) {
+                showError(signatureResult, `Failed to sign challenge: ${error.message}`);
+            }
+        });
+
+        // Step 3: Authenticate
+        authenticateBtn.addEventListener('click', async () => {
+            if (!currentChallenge || !currentSignature) {
+                showError(authenticationResult, 'Challenge and signature are required');
+                return;
+            }
+
+            const clientId = clientIdInput.value.trim();
+            if (!clientId) {
+                showError(authenticationResult, 'Client ID is required');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${AUTH_SERVER_URL}/auth/authenticate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        clientId: clientId,
+                        signature: currentSignature // Send as array of numbers
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const result = await response.json();
+                
+                if (result.authenticated) {
+                    showSuccess(authenticationResult, 'Authentication SUCCESSFUL!');
+                } else {
+                    showError(authenticationResult, 'Authentication FAILED');
+                }
+            } catch (error) {
+                showError(authenticationResult, `Authentication failed: ${error.message}`);
+            }
+        });
+
+        // Helper functions
+        function showError(element, message) {
+            element.innerHTML += `<p class="error">${message}</p>`;
+        }
+
+        function showSuccess(element, message) {
+            element.innerHTML += `<p class="success">${message}</p>`;
+        }
+
+        function base64ToUint8Array(base64) {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes;
+        }
+
+        function uint8ArrayToBase64(bytes) {
+            let binary = '';
+            const len = bytes.byteLength;
+            for (let i = 0; i < len; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+    </script>
+</body>
+</html>
