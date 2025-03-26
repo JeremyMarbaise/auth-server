@@ -73,7 +73,8 @@ Content-Type: application/json
 }
 ```  
 
-
+### HTML test file
+to test the API Server and the local Eid API use this [HTML file](./index.html)
 
 
 ## **🔒 Security Notes**  
