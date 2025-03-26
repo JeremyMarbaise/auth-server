@@ -1,4 +1,3 @@
-# auth-server
 # **Authentication Server for Belgian eID**  
 A lightweight authentication server that generates challenges and verifies signatures using the Belgian eID card system.  
 
@@ -29,7 +28,7 @@ A lightweight authentication server that generates challenges and verifies signa
    ```sh
    dotnet run
    ```
-   The server will start at `https://localhost:7043`.  
+   The server will start at `https://localhost:7174`.  
 
 ---
 
@@ -100,7 +99,7 @@ auth-server/
 
 
 ### **Missing eID Middleware**  
-Ensure the [Belgian eID middlewareis](https://github.com/JeremyMarbaise/eid-mw.git) installed and running.  
+Ensure the [Belgian eID middleware](https://github.com/JeremyMarbaise/eid-mw.git) is installed and running.  
 
 
 ---
